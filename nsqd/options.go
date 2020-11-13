@@ -3,10 +3,13 @@ package nsqd
 import (
 	"crypto/md5"
 	"crypto/tls"
+	"fmt"
 	"hash/crc32"
 	"io"
 	"log"
+	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/nsqio/nsq/internal/lg"
@@ -23,6 +26,8 @@ type Options struct {
 	HTTPAddress              string        `flag:"http-address"`
 	HTTPSAddress             string        `flag:"https-address"`
 	BroadcastAddress         string        `flag:"broadcast-address"`
+	BroadcastTCPPort         int           `flag:"broadcast-tcp-port"`
+	BroadcastHTTPPort        int           `flag:"broadcast-http-port"`
 	NSQLookupdTCPAddresses   []string      `flag:"lookupd-tcp-address" cfg:"nsqlookupd_tcp_addresses"`
 	AuthHTTPAddresses        []string      `flag:"auth-http-address" cfg:"auth_http_addresses"`
 	HTTPClientConnectTimeout time.Duration `flag:"http-client-connect-timeout" cfg:"http_client_connect_timeout"`
@@ -98,10 +103,12 @@ func NewOptions() *Options {
 		LogPrefix: "[nsqd] ",
 		LogLevel:  lg.INFO,
 
-		TCPAddress:       "0.0.0.0:4150",
-		HTTPAddress:      "0.0.0.0:4151",
-		HTTPSAddress:     "0.0.0.0:4152",
-		BroadcastAddress: hostname,
+		TCPAddress:        "0.0.0.0:4150",
+		HTTPAddress:       "0.0.0.0:4151",
+		HTTPSAddress:      "0.0.0.0:4152",
+		BroadcastAddress:  hostname,
+		BroadcastTCPPort:  0,
+		BroadcastHTTPPort: 0,
 
 		NSQLookupdTCPAddresses: make([]string, 0),
 		AuthHTTPAddresses:      make([]string, 0),
@@ -148,4 +155,28 @@ func NewOptions() *Options {
 
 		TLSMinVersion: tls.VersionTLS10,
 	}
+}
+
+func applyDefaultOptions(opts *Options) error {
+	if opts.BroadcastHTTPPort == 0 {
+		_, portStr, err := net.SplitHostPort(opts.HTTPAddress)
+		if err != nil {
+			return fmt.Errorf("failed to parse HTTP address (%s) - %s", opts.HTTPAddress, err)
+		}
+
+		portInt, _ := strconv.ParseInt(portStr, 10, 32)
+		opts.BroadcastHTTPPort = int(portInt)
+	}
+
+	if opts.BroadcastTCPPort == 0 {
+		_, portStr, err := net.SplitHostPort(opts.TCPAddress)
+		if err != nil {
+			return fmt.Errorf("failed to parse TCP address (%s) - %s", opts.TCPAddress, err)
+		}
+
+		portInt, _ := strconv.ParseInt(portStr, 10, 32)
+		opts.BroadcastTCPPort = int(portInt)
+	}
+
+	return nil
 }

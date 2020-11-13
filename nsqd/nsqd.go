@@ -79,6 +79,11 @@ type NSQD struct {
 func New(opts *Options) (*NSQD, error) {
 	var err error
 
+	err = applyDefaultOptions(opts)
+	if err != nil {
+		return nil, err
+	}
+
 	dataPath := opts.DataPath
 	if opts.DataPath == "" {
 		cwd, _ := os.Getwd()
